@@ -1,61 +1,42 @@
 #include "main.h"
-
-#include "cmath"
 #include "gpio.h"
 #include "i2c.h"
-#include "spi.h"
-#include "tim.h"
-#include "gps.h"
+#include "ubxPacket.h"
+#include "ubxMessages.h"
+#include "ubxHelpers.h"
 
+/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void initializeM8QI2C();
 
+UBX_NAV_STATUS_PAYLOAD status;
+UBX_NAV_SAT_PAYLOAD satelliteInfo;
 
-int main(void) {
+int main(void)
+{
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
-    initializeM8QI2C();
-    HAL_I2C_Init(&hi2c1);
 
+    /* Configure the system clock */
     SystemClock_Config();
 
+    /* Initialize all configured peripherals */
     MX_GPIO_Init();
-    MX_SPI1_Init();
-    MX_SPI2_Init();
-    MX_TIM4_Init();
-    MX_TIM5_Init();
+    MX_I2C1_Init();
+    MX_I2C2_Init();
 
-    HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port, LED_FLIGHT_Pin, GPIO_PIN_RESET);
+    /* USER CODE BEGIN 2 */
+    HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_SET);
+    HAL_Delay(1000);
 
-    // HAL_StatusTypeDef status = HAL_I2C_IsDeviceReady(&hi2c1, 0x42<<1, 10, 1000);
-    
-    // HAL_StatusTypeDef status = HAL_I2C_Master_Transmit(&hi2c1, 0x42<<1, (uint8_t*)"\x00\x00", 2, 1000);
-    UBX_NAV_STATUS nav_status_buffer;
-    HAL_StatusTypeDef status = HAL_I2C_Mem_Read(&hi2c1, 0x42, 0x03, 16, (uint8_t*)&nav_status_buffer, 16, 1000);
-
-    // HAL_StatusTypeDef status = HAL_I2C_Master_Receive(&hi2c1, 0x42<<1, (uint8_t*)"\x00\x00", 2, 1000);
-
-    HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin, GPIO_PIN_RESET);
-    if(status != HAL_OK) {
-        HAL_GPIO_WritePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin, GPIO_PIN_SET);
-    } else {
-        HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port, LED_FLIGHT_Pin, GPIO_PIN_SET);
-    }
+    while(1) {
+        if(checkGPSNavSatellites(&satelliteInfo, &hi2c1)) {
+            HAL_Delay(10);
+        } 
+        HAL_Delay(1000);
+}
 }
 
-void initializeM8QI2C() {
-    hi2c1.Instance = I2C2;
-    hi2c1.Init.ClockSpeed = 100000;
-    hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-    hi2c1.Init.OwnAddress1 = 0;
-    hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-    hi2c1.Init.OwnAddress2 = 0;
-    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-    hi2c1.Memaddress = 0x01;
-}
+
 
 void SystemClock_Config(void) {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
