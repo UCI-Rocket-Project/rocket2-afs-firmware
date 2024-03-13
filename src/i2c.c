@@ -87,15 +87,13 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* i2cHandle) {
 
         __HAL_RCC_GPIOB_CLK_ENABLE();
         /**I2C1 GPIO Configuration
-        PB8     ------> I2C1_SCL
-        PB9     ------> I2C1_SDA
+        PB6     ------> I2C1_SCL
+        PB7     ------> I2C1_SDA
         */
         GPIO_InitStruct.Pin = GPS_SCL_Pin | GPS_SDA_Pin;
         GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
         HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-        __HAL_AFIO_REMAP_I2C1_ENABLE();
 
         /* I2C1 clock enable */
         __HAL_RCC_I2C1_CLK_ENABLE();
@@ -134,8 +132,8 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle) {
         __HAL_RCC_I2C1_CLK_DISABLE();
 
         /**I2C1 GPIO Configuration
-        PB8     ------> I2C1_SCL
-        PB9     ------> I2C1_SDA
+        PB6     ------> I2C1_SCL
+        PB7     ------> I2C1_SDA
         */
         HAL_GPIO_DeInit(GPS_SCL_GPIO_Port, GPS_SCL_Pin);
 
