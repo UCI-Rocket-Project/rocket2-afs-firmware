@@ -65,8 +65,8 @@ void Error_Handler(void);
 #define IMU_BOOT_GPIO_Port GPIOC
 #define MEM_HOLD_Pin GPIO_PIN_0
 #define MEM_HOLD_GPIO_Port GPIOC
-#define ARM_Pin GPIO_PIN_1
-#define ARM_GPIO_Port GPIOC
+#define ARMED_Pin GPIO_PIN_1
+#define ARMED_GPIO_Port GPIOC
 #define MEM_WP_Pin GPIO_PIN_2
 #define MEM_WP_GPIO_Port GPIOC
 #define DROGUE_FIRE_Pin GPIO_PIN_0
@@ -113,10 +113,14 @@ void Error_Handler(void);
 #define GPS_INT_GPIO_Port GPIOC
 #define GPS_RST_Pin GPIO_PIN_11
 #define GPS_RST_GPIO_Port GPIOC
-#define GPS_SCL_Pin GPIO_PIN_8
+#define GPS_SCL_Pin GPIO_PIN_6
 #define GPS_SCL_GPIO_Port GPIOB
-#define GPS_SDA_Pin GPIO_PIN_9
+#define GPS_SDA_Pin GPIO_PIN_7
 #define GPS_SDA_GPIO_Port GPIOB
+
+/* USER CODE BEGIN Private defines */
+
+/* USER CODE END Private defines */
 
 #ifdef __cplusplus
 }

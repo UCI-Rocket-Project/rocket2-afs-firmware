@@ -1,31 +1,63 @@
 #include "main.h"
-
-#include "cmath"
 #include "gpio.h"
 #include "i2c.h"
-#include "spi.h"
-#include "tim.h"
+#include "gps.h"
 
 void SystemClock_Config(void);
 
-int main(void) {
+typedef GpsUbxM8I2c GPS;
+
+
+int main(void)
+{
+    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
 
+    /* Configure the system clock */
     SystemClock_Config();
 
+    /* Initialize all configured peripherals */
     MX_GPIO_Init();
+
     MX_I2C1_Init();
-    MX_I2C2_Init();
-    MX_SPI1_Init();
-    MX_SPI2_Init();
-    MX_TIM4_Init();
-    MX_TIM5_Init();
+
+    // write some garbage to i2c1
+    uint8_t garbage[2] = {0x0A, 0x0B};
 
     while(1) {
-        HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin);
+        HAL_I2C_Master_Transmit(&hi2c1, 0x42 << 1, garbage, 2, 100);
         HAL_Delay(1000);
+        
+        // toggle flight led
+        HAL_GPIO_TogglePin(LED_FLIGHT_GPIO_Port, LED_FLIGHT_Pin);
+    }
+
+    return 0;
+
+    /* USER CODE BEGIN 2 */
+    GPS gps(GPS_RST_GPIO_Port, GPS_RST_Pin, &hi2c1, PVT_MESSAGE);
+    gps.Init();
+    HAL_Delay(1000);
+
+    int lastITOW = 0;
+    while(1) {
+        volatile GPS::PollResult res = gps.PollUpdate();    
+        auto state = gps.GetState();
+        if(state == GPS::State::RESPONSE_READY) {
+            UBX_NAV_PVT_PAYLOAD sol = *(UBX_NAV_PVT_PAYLOAD*)gps.GetSolution();            
+            volatile int diff = sol.iTOW - lastITOW;
+            lastITOW = sol.iTOW;
+            if((GPSFixType)sol.fixType == GPSFixType::FIX_3D) {
+                HAL_Delay(1000);
+            }
+            gps.Reset();
+        } else {
+            HAL_Delay(100);
+        }
     }
 }
+
+
 
 void SystemClock_Config(void) {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};

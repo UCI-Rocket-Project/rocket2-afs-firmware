@@ -71,10 +71,10 @@ void MX_GPIO_Init(void) {
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
     /*Configure GPIO pin : PtPin */
-    GPIO_InitStruct.Pin = ARM_Pin;
+    GPIO_InitStruct.Pin = ARMED_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(ARM_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(ARMED_GPIO_Port, &GPIO_InitStruct);
 
     /*Configure GPIO pins : PAPin PAPin PAPin PAPin */
     GPIO_InitStruct.Pin = DROGUE_FIRE_Pin | MAIN_FIRE_Pin | LED_STANDBY_Pin | LED_ARMED_Pin;
