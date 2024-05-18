@@ -292,7 +292,7 @@ int main(void) {
 
     // Current state of AFS, value = to AfsState struct documentation
         // current bypassing arming stage
-    uint8_t state = 0x0;
+    uint8_t state = 0x1;
 
     // Memory LED blinking counter
     int memoryLEDCounter = 0;
@@ -322,7 +322,7 @@ int main(void) {
 
     // Previous time for timing delay of writing into
     uint32_t prevTime = HAL_GetTick();
-
+    int i = 0;
     while (1)
     {
         if(state > 0x0)
@@ -386,12 +386,12 @@ int main(void) {
 
             /* IMU data */
             imuData = imu.Read();
-            afsData.angularVelocityX  = imuData.angularVelocityX;
+            afsData.angularVelocityX  = -imuData.angularVelocityX;
             afsData.angularVelocityY  = imuData.angularVelocityY;
-            afsData.angularVelocityZ  = imuData.angularVelocityZ;
-            afsData.accelerationX     = imuData.accelerationX;
-            afsData.accelerationY     = imuData.accelerationY;
-            afsData.accelerationZ     = imuData.accelerationZ;
+            afsData.angularVelocityZ  = -imuData.angularVelocityZ;
+            afsData.accelerationX     = -imuData.accelerationX;
+            afsData.accelerationY     =  imuData.accelerationY;
+            afsData.accelerationZ     = -imuData.accelerationZ;
 
             /* Magnetometer data */
             magData = magnetometer.Read();
@@ -400,27 +400,27 @@ int main(void) {
             afsData.magneticFieldZ = magData.magneticFieldZ;
 
             /* Data written into memory */
-            memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
-            // when AFS is armed and on launch rails, store data every .5 seconds
-            if(state == 0x1 || state == 0xB)
-            {
-                if(HAL_GetTick() > prevTime + 100)
-                {
-                    if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
-                    {
-                        if(memoryLEDCounter % 10 == 0)
-                        {
-                            //for blinking LED
-                            HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
-                        }
-                        memoryLEDCounter++;
+            // memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
+            // // when AFS is armed and on launch rails, store data every .5 seconds
+            // if(state == 0x1 || state == 0xB)
+            // {
+            //     if(HAL_GetTick() > prevTime + 100)
+            //     {
+            //         if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+            //         {
+            //             if(memoryLEDCounter % 10 == 0)
+            //             {
+            //                 //for blinking LED
+            //                 HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+            //             }
+            //             memoryLEDCounter++;
 
-                        prevTime = HAL_GetTick();
-                    }
-                }
-            }
-            // when AFS is in flight, store data as fast as possible
-            else
+            //             prevTime = HAL_GetTick();
+            //         }
+            //     }
+            // }
+            // // when AFS is in flight, store data as fast as possible
+            // else
             {
                 if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
                 {
