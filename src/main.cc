@@ -496,6 +496,7 @@ int main(void) {
                 break;
         }
 
+        // Will be deleted later, used to store in memory the attempts to check for apogee detection
         afsData.angularVelocityX = tick;  ///////////////////////////////////////////////////////////
 
         /********************  Data written into memory ********************/
