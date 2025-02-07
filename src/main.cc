@@ -292,7 +292,7 @@ int main(void) {
     uint8_t memoryBuffer[64];
 
     // Current state of AFS, value = to AfsState struct documentation
-    uint8_t state = 0x0;
+    uint8_t state = 0x1;
 
     // Memory LED blinking counter
     int memoryLEDCounter = 0;
@@ -399,8 +399,14 @@ int main(void) {
                 HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin, GPIO_PIN_SET);
                 HAL_GPIO_WritePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin, GPIO_PIN_SET);
 
-                if ((altData.altitude != -1) && altData.altitude != prevAltitude) {
-                    if (altData.altitude > startAltitude + 3) {
+                // if altitude is above 25 meters and AFS is experiencing more than 2.5 g of magnitude for 20 cycles
+                // afs is in BOOST mode
+                if (afsData.altitude != -1 && altData.altitude != prevAltitude) {
+                    if (altData.altitude > startAltitude + 25 && 
+                    (sqrt(pow(afsData.accelerationX,2) * 7.3 * pow(10, -4) + 
+                            pow(afsData.accelerationY,2) * 7.3 * pow(10, -4) + 
+                            pow(afsData.accelerationZ,2) * 7.3 * pow(10, -4)) > 2.5)) 
+                    {
                         tick++;
                         if (tick > 20) {
                             tick = 0;
