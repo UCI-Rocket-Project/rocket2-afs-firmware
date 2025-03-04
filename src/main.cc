@@ -562,6 +562,10 @@ int main(void) {
         if (altData.altitude != prevAltitude) {
             prevAltitude = altData.altitude;
         }
+
+        // loop time control (the timestamp rolls over after 49 hours, should be ok)
+        while ((TIM5->CNT << 16 | TIM4->CNT) - timestamp < 100) {
+        }
     }
 }
 
@@ -850,22 +854,10 @@ static void MX_GPIO_Init(void) {
     /* USER CODE END MX_GPIO_Init_2 */
 }
 
-/**
- * @brief TIM4 Initialization Function
- * @param None
- * @retval None
- */
 static void MX_TIM4_Init(void) {
-    /* USER CODE BEGIN TIM4_Init 0 */
-
-    /* USER CODE END TIM4_Init 0 */
-
     TIM_ClockConfigTypeDef sClockSourceConfig = {0};
     TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-    /* USER CODE BEGIN TIM4_Init 1 */
-
-    /* USER CODE END TIM4_Init 1 */
     htim4.Instance = TIM4;
     htim4.Init.Prescaler = 36000;
     htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -884,27 +876,12 @@ static void MX_TIM4_Init(void) {
     if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK) {
         Error_Handler();
     }
-    /* USER CODE BEGIN TIM4_Init 2 */
-
-    /* USER CODE END TIM4_Init 2 */
 }
 
-/**
- * @brief TIM5 Initialization Function
- * @param None
- * @retval None
- */
 static void MX_TIM5_Init(void) {
-    /* USER CODE BEGIN TIM5_Init 0 */
-
-    /* USER CODE END TIM5_Init 0 */
-
     TIM_SlaveConfigTypeDef sSlaveConfig = {0};
     TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-    /* USER CODE BEGIN TIM5_Init 1 */
-
-    /* USER CODE END TIM5_Init 1 */
     htim5.Instance = TIM5;
     htim5.Init.Prescaler = 0;
     htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -915,7 +892,7 @@ static void MX_TIM5_Init(void) {
         Error_Handler();
     }
     sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
-    sSlaveConfig.InputTrigger = TIM_TS_ITR1;
+    sSlaveConfig.InputTrigger = TIM_TS_ITR2;
     if (HAL_TIM_SlaveConfigSynchro(&htim5, &sSlaveConfig) != HAL_OK) {
         Error_Handler();
     }
