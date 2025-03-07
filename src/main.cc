@@ -333,10 +333,12 @@ int main(void) {
     // Previous time for timing delay of writing into
     uint32_t prevTime = TIM5->CNT << 16 | TIM4->CNT;
     
+    // data type for afs struct is always 0x00, as per UCIRP standard
+    afsData.type      = 0x00;
+
     while (1)
     {
     /******************** DATA COLLECTION ********************/
-        afsData.type      = 0x00;
         // uint32_t timeStamp = HAL_GetTick();
         uint32_t timeStamp = TIM5->CNT << 16 | TIM4->CNT;
         afsData.timestamp = timeStamp;
@@ -540,7 +542,29 @@ int main(void) {
         memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
         // when AFS is armed and on launch rails, store data every .5 seconds
 
-        // commented out for lucerne testing 3/5/2025
+        if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+        {
+            //LED blinking
+            if(memoryLEDCounter % 10 == 0)
+            {
+                //for blinking LED
+                HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+            }
+            memoryLEDCounter++;
+            //reestabilish the prevTime
+            prevTime = HAL_GetTick();
+            //reset the data from modules with lead time
+            afsData.temperature           = 0xFFFF;
+            afsData.altitude              = 0xFFFFFFFF;
+            afsData.ecefPositionX         = 0xFFFFFFFF;
+            afsData.ecefPositionY         = 0xFFFFFFFF;
+            afsData.ecefPositionZ         = 0xFFFFFFFF;
+            afsData.ecefVelocityX         = 0xFFFFFFFF;
+            afsData.ecefVelocityY         = 0xFFFFFFFF;
+            afsData.ecefVelocityZ         = 0xFFFFFFFF;
+            afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
+            afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
+        }
 
         // if(state == 0x1 || state == 0xB)
         // {
@@ -573,32 +597,31 @@ int main(void) {
         // }
         // // when AFS is in flight, store data as fast as possible
         // else if(state > 0x1 && state < 0xB)
-        if(state >= 0x1)
-        {
-            if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
-            {
-                //LED blinking
-                if(memoryLEDCounter % 10 == 0)
-                {
-                    //for blinking LED
-                    HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
-                }
-                memoryLEDCounter++;
-                //reestabilish the prevTime
-                prevTime = HAL_GetTick();
-                //reset the data from modules with lead time
-                afsData.temperature           = 0xFFFF;
-                afsData.altitude              = 0xFFFFFFFF;
-                afsData.ecefPositionX         = 0xFFFFFFFF;
-                afsData.ecefPositionY         = 0xFFFFFFFF;
-                afsData.ecefPositionZ         = 0xFFFFFFFF;
-                afsData.ecefVelocityX         = 0xFFFFFFFF;
-                afsData.ecefVelocityY         = 0xFFFFFFFF;
-                afsData.ecefVelocityZ         = 0xFFFFFFFF;
-                afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
-                afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
-            }
-        }
+        // {
+        //     if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+        //     {
+        //         //LED blinking
+        //         if(memoryLEDCounter % 10 == 0)
+        //         {
+        //             //for blinking LED
+        //             HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+        //         }
+        //         memoryLEDCounter++;
+        //         //reestabilish the prevTime
+        //         prevTime = HAL_GetTick();
+        //         //reset the data from modules with lead time
+        //         afsData.temperature           = 0xFFFF;
+        //         afsData.altitude              = 0xFFFFFFFF;
+        //         afsData.ecefPositionX         = 0xFFFFFFFF;
+        //         afsData.ecefPositionY         = 0xFFFFFFFF;
+        //         afsData.ecefPositionZ         = 0xFFFFFFFF;
+        //         afsData.ecefVelocityX         = 0xFFFFFFFF;
+        //         afsData.ecefVelocityY         = 0xFFFFFFFF;
+        //         afsData.ecefVelocityZ         = 0xFFFFFFFF;
+        //         afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
+        //         afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
+        //     }
+        // }
 
         //update the previous altitude data
         if(altData.altitude != prevAltitude)
