@@ -336,6 +336,12 @@ int main(void) {
     // data type for afs struct is always 0x00, as per UCIRP standard
     afsData.type      = 0x00;
 
+
+    // random BS for lucerne
+    int fireTicker = 0;
+    int fireTimer = TIM5->CNT << 16 | TIM4->CNT;
+
+
     while (1)
     {
     /******************** DATA COLLECTION ********************/
@@ -398,172 +404,85 @@ int main(void) {
         /******************** State maching and parachute deployment ********************/
         switch (state)
         {
-        case (0x0):
-            /* Standby mode 0x0 */
-            // Standby mode, keep collecting data but never log into memory
-            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_SET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_RESET);
+        case 0x0:
+            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_SET);
 
-            if(HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port, ARM_CONT_Pin) == 1)
+            if(HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,ARM_CONT_Pin) == GPIO_PIN_SET)
             {
                 state = 0x1;
+                fireTicker = 0;
             }
             break;
-        case (0x1):
-            /* ARMED mode 0x01 */
-            // Armed mode: will collect data and look for flught condition
-            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_SET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_SET);
-
-            if ((altData.altitude != -1) && altData.altitude != prevAltitude) 
+        case 0x1:
+            if(afsData.timestamp - fireTimer > 500)
             {
-                if (altData.altitude > startAltitude + 30 && 
-                    sqrt(pow(afsData.accelerationX,2) + pow(afsData.accelerationY,2) + pow(afsData.accelerationZ,2))) 
-                {
-                    tick++;
-                    if (tick > 10) 
-                    {
-                        tick = 0;
-                        state = 0x2;
+                fireTicker++;
+                fireTimer = TIM5->CNT << 16 | TIM4->CNT;
 
-                    }
-                } 
-                else 
+                HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin);
+                HAL_GPIO_TogglePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin);
+
+                if(fireTicker >= 120)
                 {
-                    tick = 0;
+                    HAL_GPIO_WritePin(DROGUE_GPIO_Port,DROGUE_Pin,GPIO_PIN_SET);
+                    state = 0x2;
+                    fireTicker = 0;
                 }
             }
-
             break;
-
-        case (0x2):
-            /* BOOST mode 0x02 */
-            // when the rocket is in flight off launch
-            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_SET);
-
-            // condition to find when to deploy drogue parachute
-            if(afsData.altitude != -1 && altData.altitude != prevAltitude)
+        case 0x2:
+            if(afsData.timestamp - fireTimer > 500)
             {
-                if (altData.altitude < prevAltitude) 
+                fireTicker++;
+                fireTimer = TIM5->CNT << 16 | TIM4->CNT;
+
+                HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
+                HAL_GPIO_TogglePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin);
+
+                if(fireTicker >= 60)
                 {
-                    tick++;
-                    // 100 is found based on HZ of loop being around 50 HZ ish
-                    if (tick > 5) 
-                    {
-                        tick = 0;
-                        state = 0x4;
-                    }
-                } 
-                else if (altData.altitude > prevAltitude) 
-                {
-                    // Reset count if altitude is increasing again
-                    tick = 0;
+                    HAL_GPIO_WritePin(MAIN_GPIO_Port,MAIN_Pin,GPIO_PIN_SET);
+                    state = 0x3;
+                    fireTicker = 0;
                 }
             }
-
             break;
-
-        case (0x4):
-            /* Apogee 0x4 */
-            // deploys the drogue parachute about 2 sec after apogee
-            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_RESET);
-
-            HAL_GPIO_WritePin(DROGUE_GPIO_Port, DROGUE_Pin, GPIO_PIN_SET);
-
-            // condition to find when to deploy main parachute
-            if ((afsData.altitude != -1) && (altData.altitude != prevAltitude)) 
-            {
-                // change state after 5 ticks of AFS under 200 ft or 61 meters
-                if ((altData.altitude < startAltitude + 61)) 
-                {
-                    tick++;
-                    if (tick > 5) 
-                    {
-                        tick = 0;
-                        state = 0x8;
-                    }
-                } 
-                else 
-                {
-                    // Reset count if altitude is increasing again
-                    tick = 0;
-                }
-            }
-
-            break;
-
-        case (0x8):
-            /* Main 0x8 */
-            // Deploys the main parachute about
-            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_SET);
-
-            HAL_GPIO_WritePin(MAIN_GPIO_Port, MAIN_Pin, GPIO_PIN_SET);
-
-            // condition to find when the rocket has landed
-            if ((afsData.altitude != -1) && (altData.altitude != prevAltitude)) 
-            {
-                // altitude is change is less than meter
-                if(abs(altData.altitude - prevAltitude) < 1)
-                {
-                    tick++;
-                    if(tick > 5)
-                    {
-                        tick = 0;
-                        state = 0xB;
-                    }
-                }
-                else
-                {
-                    // Reset count if altitude is increaseing again
-                    tick = 0;
-                }
-            }
-
-        case(0xB):
-            /* Land 0xB */
-            // Landing conditinon, do nothing but still log data
-            HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin, GPIO_PIN_RESET);
-
-            HAL_Delay(100);
-
         default:
+            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_SET);
             break;
         }
-
-        afsData.angularVelocityX = tick; ///////////////////////////////////////////////////////////
 
         /********************  Data written into memory ********************/
         memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
         // when AFS is armed and on launch rails, store data every .5 seconds
-
-        if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+        
+        if(state > 0x0)
         {
-            //LED blinking
-            if(memoryLEDCounter % 10 == 0)
+            if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
             {
-                //for blinking LED
-                HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+                //LED blinking
+                if(memoryLEDCounter % 10 == 0)
+                {
+                    //for blinking LED
+                    HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+                }
+                memoryLEDCounter++;
+                //reestabilish the prevTime
+                prevTime = HAL_GetTick();
+                //reset the data from modules with lead time
+                afsData.temperature           = 0xFFFF;
+                afsData.altitude              = 0xFFFFFFFF;
+                afsData.ecefPositionX         = 0xFFFFFFFF;
+                afsData.ecefPositionY         = 0xFFFFFFFF;
+                afsData.ecefPositionZ         = 0xFFFFFFFF;
+                afsData.ecefVelocityX         = 0xFFFFFFFF;
+                afsData.ecefVelocityY         = 0xFFFFFFFF;
+                afsData.ecefVelocityZ         = 0xFFFFFFFF;
+                afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
+                afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
             }
-            memoryLEDCounter++;
-            //reestabilish the prevTime
-            prevTime = HAL_GetTick();
-            //reset the data from modules with lead time
-            afsData.temperature           = 0xFFFF;
-            afsData.altitude              = 0xFFFFFFFF;
-            afsData.ecefPositionX         = 0xFFFFFFFF;
-            afsData.ecefPositionY         = 0xFFFFFFFF;
-            afsData.ecefPositionZ         = 0xFFFFFFFF;
-            afsData.ecefVelocityX         = 0xFFFFFFFF;
-            afsData.ecefVelocityY         = 0xFFFFFFFF;
-            afsData.ecefVelocityZ         = 0xFFFFFFFF;
-            afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
-            afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
         }
 
         // if(state == 0x1 || state == 0xB)
