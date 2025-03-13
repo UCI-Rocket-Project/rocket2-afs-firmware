@@ -349,9 +349,9 @@ int main(void) {
         uint32_t timeStamp = TIM5->CNT << 16 | TIM4->CNT;
         afsData.timestamp = timeStamp;
 
-        afsState.armPinState      = HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,    ARM_CONT_Pin);
-        afsState.drogueContinuity = HAL_GPIO_ReadPin(DROGUE_CONT_GPIO_Port, DROGUE_CONT_Pin);
-        afsState.mainContinuity   = HAL_GPIO_ReadPin(MAIN_CONT_GPIO_Port,   MAIN_CONT_Pin);
+        afsState.armPinState      =  HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,    ARM_CONT_Pin);
+        afsState.drogueContinuity = ~HAL_GPIO_ReadPin(DROGUE_CONT_GPIO_Port, DROGUE_CONT_Pin);
+        afsState.mainContinuity   = ~HAL_GPIO_ReadPin(MAIN_CONT_GPIO_Port,   MAIN_CONT_Pin);
         afsState.state            = state;
         afsData.state             = *(uint8_t *)&afsState;
 
@@ -365,26 +365,26 @@ int main(void) {
         }
 
         /* GPS Data */
-        gps.PollUpdate();
-        GpsUbxM8I2c::State gpsState = gps.GetState();
-        if (gpsState == GpsUbxM8I2c::State::RESPONSE_READY) {
-            //getting data
-            gpsData                       = *(UBX_NAV_PVT_PAYLOAD *)gps.GetSolution();
-            afsData.ecefPositionX         = gpsData.ecefX;
-            afsData.ecefPositionY         = gpsData.ecefY;
-            afsData.ecefPositionZ         = gpsData.ecefZ;
-            afsData.ecefVelocityX         = gpsData.ecefVX;
-            afsData.ecefVelocityY         = gpsData.ecefVY;
-            afsData.ecefVelocityZ         = gpsData.ecefVZ;
-            afsData.ecefPositionAccuracy  = gpsData.pAcc;
-            afsData.ecefVelocityAccuracy  = gpsData.sAcc;
+        // gps.PollUpdate();
+        // GpsUbxM8I2c::State gpsState = gps.GetState();
+        // if (gpsState == GpsUbxM8I2c::State::RESPONSE_READY) {
+        //     //getting data
+        //     gpsData                       = *(UBX_NAV_PVT_PAYLOAD *)gps.GetSolution();
+        //     afsData.ecefPositionX         = gpsData.ecefX;
+        //     afsData.ecefPositionY         = gpsData.ecefY;
+        //     afsData.ecefPositionZ         = gpsData.ecefZ;
+        //     afsData.ecefVelocityX         = gpsData.ecefVX;
+        //     afsData.ecefVelocityY         = gpsData.ecefVY;
+        //     afsData.ecefVelocityZ         = gpsData.ecefVZ;
+        //     afsData.ecefPositionAccuracy  = gpsData.pAcc;
+        //     afsData.ecefVelocityAccuracy  = gpsData.sAcc;
 
-            if ((GPSFixType)gpsData.gpsFix == GPSFixType::FIX_3D && gpsData.iTOW > gpsPreviousTow) {
-                HAL_GPIO_TogglePin(LED_FLIGHT_GPIO_Port, LED_FLIGHT_Pin);
-                gpsPreviousTow = gpsData.iTOW;
-            }
-            gps.Reset();
-        }
+        //     if ((GPSFixType)gpsData.gpsFix == GPSFixType::FIX_3D && gpsData.iTOW > gpsPreviousTow) {
+        //         HAL_GPIO_TogglePin(LED_FLIGHT_GPIO_Port, LED_FLIGHT_Pin);
+        //         gpsPreviousTow = gpsData.iTOW;
+        //     }
+        //     gps.Reset();
+        // }
 
         /* IMU data */
         imuData = imu.Read();
@@ -396,25 +396,25 @@ int main(void) {
         afsData.accelerationZ     = -imuData.accelerationZ;
 
         /* Magnetometer data */
-        magData = magnetometer.Read();
-        afsData.magneticFieldX =  magData.magneticFieldY;
-        afsData.magneticFieldY = -magData.magneticFieldX;
-        afsData.magneticFieldZ =  magData.magneticFieldZ;
+        // magData = magnetometer.Read();
+        // afsData.magneticFieldX =  magData.magneticFieldY;
+        // afsData.magneticFieldY = -magData.magneticFieldX;
+        // afsData.magneticFieldZ =  magData.magneticFieldZ;
 
         /******************** State maching and parachute deployment ********************/
         switch (state)
         {
         case 0x0:
             HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_RESET);
 
-            if(HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,ARM_CONT_Pin) == GPIO_PIN_SET)
+            if(afsState.armPinState && afsState.drogueContinuity && afsState.mainContinuity)
             {
-                state = 0x1;
+                state = 0x2;
                 fireTicker = 0;
             }
             break;
-        case 0x1:
+        case 0x2:
             if(afsData.timestamp - fireTimer > 500)
             {
                 fireTicker++;
@@ -426,12 +426,12 @@ int main(void) {
                 if(fireTicker >= 120)
                 {
                     HAL_GPIO_WritePin(DROGUE_GPIO_Port,DROGUE_Pin,GPIO_PIN_SET);
-                    state = 0x2;
+                    state = 0x3;
                     fireTicker = 0;
                 }
             }
             break;
-        case 0x2:
+        case 0x3:
             if(afsData.timestamp - fireTimer > 500)
             {
                 fireTicker++;
@@ -443,14 +443,32 @@ int main(void) {
                 if(fireTicker >= 60)
                 {
                     HAL_GPIO_WritePin(MAIN_GPIO_Port,MAIN_Pin,GPIO_PIN_SET);
-                    state = 0x3;
+                    state = 0x4;
                     fireTicker = 0;
                 }
             }
             break;
-        default:
+        case 0x4:
             HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
             HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_SET);
+
+            if(afsData.timestamp - fireTimer > 500)
+            {
+                fireTicker++;
+                fireTimer = TIM5->CNT << 16 | TIM4->CNT;
+
+                HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin);
+
+                if(fireTicker >= 60)
+                {
+                    state = 0xB;
+                    fireTicker = 0;
+                }
+            }
+
+        default:
+            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
+            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_RESET);
             break;
         }
 
@@ -458,7 +476,38 @@ int main(void) {
         memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
         // when AFS is armed and on launch rails, store data every .5 seconds
         
-        if(state > 0x0)
+
+        if(state == 0x1 || state == 0xB)
+        {
+            if(HAL_GetTick() > prevTime + 100)
+            {
+                if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+                {
+                    //LED blinking
+                    if(memoryLEDCounter % 10 == 0)
+                    {
+                        //for blinking LED
+                        HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+                    }
+                    memoryLEDCounter++;
+                    //reestablish the prevTime
+                    prevTime = HAL_GetTick();
+                    //reset the data from modules with lead time
+                    afsData.temperature           = 0xFFFF;
+                    afsData.altitude              = 0xFFFFFFFF;
+                    afsData.ecefPositionX         = 0xFFFFFFFF;
+                    afsData.ecefPositionY         = 0xFFFFFFFF;
+                    afsData.ecefPositionZ         = 0xFFFFFFFF;
+                    afsData.ecefVelocityX         = 0xFFFFFFFF;
+                    afsData.ecefVelocityY         = 0xFFFFFFFF;
+                    afsData.ecefVelocityZ         = 0xFFFFFFFF;
+                    afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
+                    afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
+                }
+            }
+        }
+        // when AFS is in flight, store data as fast as possible
+        else if(state > 0x1 && state < 0xB)
         {
             if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
             {
@@ -484,63 +533,6 @@ int main(void) {
                 afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
             }
         }
-
-        // if(state == 0x1 || state == 0xB)
-        // {
-        //     if(HAL_GetTick() > prevTime + 100)
-        //     {
-        //         if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
-        //         {
-        //             //LED blinking
-        //             if(memoryLEDCounter % 10 == 0)
-        //             {
-        //                 //for blinking LED
-        //                 HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
-        //             }
-        //             memoryLEDCounter++;
-        //             //reestablish the prevTime
-        //             prevTime = HAL_GetTick();
-        //             //reset the data from modules with lead time
-        //             afsData.temperature           = 0xFFFF;
-        //             afsData.altitude              = 0xFFFFFFFF;
-        //             afsData.ecefPositionX         = 0xFFFFFFFF;
-        //             afsData.ecefPositionY         = 0xFFFFFFFF;
-        //             afsData.ecefPositionZ         = 0xFFFFFFFF;
-        //             afsData.ecefVelocityX         = 0xFFFFFFFF;
-        //             afsData.ecefVelocityY         = 0xFFFFFFFF;
-        //             afsData.ecefVelocityZ         = 0xFFFFFFFF;
-        //             afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
-        //             afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
-        //         }
-        //     }
-        // }
-        // // when AFS is in flight, store data as fast as possible
-        // else if(state > 0x1 && state < 0xB)
-        // {
-        //     if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
-        //     {
-        //         //LED blinking
-        //         if(memoryLEDCounter % 10 == 0)
-        //         {
-        //             //for blinking LED
-        //             HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
-        //         }
-        //         memoryLEDCounter++;
-        //         //reestabilish the prevTime
-        //         prevTime = HAL_GetTick();
-        //         //reset the data from modules with lead time
-        //         afsData.temperature           = 0xFFFF;
-        //         afsData.altitude              = 0xFFFFFFFF;
-        //         afsData.ecefPositionX         = 0xFFFFFFFF;
-        //         afsData.ecefPositionY         = 0xFFFFFFFF;
-        //         afsData.ecefPositionZ         = 0xFFFFFFFF;
-        //         afsData.ecefVelocityX         = 0xFFFFFFFF;
-        //         afsData.ecefVelocityY         = 0xFFFFFFFF;
-        //         afsData.ecefVelocityZ         = 0xFFFFFFFF;
-        //         afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
-        //         afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
-        //     }
-        // }
 
         //update the previous altitude data
         if(altData.altitude != prevAltitude)
