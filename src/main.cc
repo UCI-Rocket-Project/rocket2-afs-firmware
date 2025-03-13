@@ -341,9 +341,9 @@ int main(void) {
         uint32_t timeStamp = TIM5->CNT << 16 | TIM4->CNT;
         afsData.timestamp = timeStamp;
 
-        afsState.armPinState      = HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,    ARM_CONT_Pin);
-        afsState.drogueContinuity = HAL_GPIO_ReadPin(DROGUE_CONT_GPIO_Port, DROGUE_CONT_Pin);
-        afsState.mainContinuity   = HAL_GPIO_ReadPin(MAIN_CONT_GPIO_Port,   MAIN_CONT_Pin);
+        afsState.armPinState      =  HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,    ARM_CONT_Pin);
+        afsState.drogueContinuity = ~HAL_GPIO_ReadPin(DROGUE_CONT_GPIO_Port, DROGUE_CONT_Pin);
+        afsState.mainContinuity   = ~HAL_GPIO_ReadPin(MAIN_CONT_GPIO_Port,   MAIN_CONT_Pin);
         afsState.state            = state;
         afsData.state             = *(uint8_t *)&afsState;
 
@@ -418,7 +418,7 @@ int main(void) {
             if ((altData.altitude != -1) && altData.altitude != prevAltitude) 
             {
                 if (altData.altitude > startAltitude + 30 && 
-                    sqrt(pow(afsData.accelerationX,2) + pow(afsData.accelerationY,2) + pow(afsData.accelerationZ,2))) 
+                    sqrt(pow(afsData.accelerationX,2) + pow(afsData.accelerationY,2) + pow(afsData.accelerationZ,2)) > 1.5) 
                 {
                     tick++;
                     if (tick > 10) 
