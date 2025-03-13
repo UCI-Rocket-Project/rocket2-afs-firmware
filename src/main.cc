@@ -410,10 +410,10 @@ int main(void) {
         afsData.accelerationZ     = -imuData.accelerationZ;
 
         /* Magnetometer data */
-        magData = magnetometer.Read();
-        afsData.magneticFieldX =  magData.magneticFieldY;
-        afsData.magneticFieldY = -magData.magneticFieldX;
-        afsData.magneticFieldZ =  magData.magneticFieldZ;
+        // magData = magnetometer.Read();
+        // afsData.magneticFieldX =  magData.magneticFieldY;
+        // afsData.magneticFieldY = -magData.magneticFieldX;
+        // afsData.magneticFieldZ =  magData.magneticFieldZ;
 
         /******************** State maching and parachute deployment ********************/
         switch (state)
