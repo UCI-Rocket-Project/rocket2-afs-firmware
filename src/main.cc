@@ -350,8 +350,8 @@ int main(void) {
         afsData.timestamp = timeStamp;
 
         afsState.armPinState      =  HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port,    ARM_CONT_Pin);
-        afsState.drogueContinuity = ~HAL_GPIO_ReadPin(DROGUE_CONT_GPIO_Port, DROGUE_CONT_Pin);
-        afsState.mainContinuity   = ~HAL_GPIO_ReadPin(MAIN_CONT_GPIO_Port,   MAIN_CONT_Pin);
+        afsState.drogueContinuity = !HAL_GPIO_ReadPin(DROGUE_CONT_GPIO_Port, DROGUE_CONT_Pin);
+        afsState.mainContinuity   = !HAL_GPIO_ReadPin(MAIN_CONT_GPIO_Port,   MAIN_CONT_Pin);
         afsState.state            = state;
         afsData.state             = *(uint8_t *)&afsState;
 
@@ -412,6 +412,9 @@ int main(void) {
             {
                 state = 0x2;
                 fireTicker = 0;
+
+                HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_SET);
+
             }
             break;
         case 0x2:
@@ -461,7 +464,7 @@ int main(void) {
 
                 if(fireTicker >= 60)
                 {
-                    state = 0xB;
+                    state = 0xC;
                     fireTicker = 0;
                 }
             }
@@ -518,8 +521,7 @@ int main(void) {
                     HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
                 }
                 memoryLEDCounter++;
-                //reestabilish the prevTime
-                prevTime = HAL_GetTick();
+
                 //reset the data from modules with lead time
                 afsData.temperature           = 0xFFFF;
                 afsData.altitude              = 0xFFFFFFFF;
