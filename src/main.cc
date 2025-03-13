@@ -165,6 +165,9 @@ int main(void) {
     char    text[256];
     int     retval;
 
+    // Previous time for timing delay of writing into
+    uint32_t prevTime = TIM5->CNT << 16 | TIM4->CNT;
+
     while(1)
     {
         //breaks loop if usb not plugged in
@@ -193,7 +196,16 @@ int main(void) {
             //USB Memory dump of all nodes
             case(0x68):
                 //Reduce frequency so hterm doesn't crash lol
-                HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port,LED_STORAGE_Pin);
+                if(HAL_GetTick() - prevTime > 100)
+                {
+                    HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port,   LED_STANDBY_Pin);
+                    HAL_GPIO_TogglePin(LED_ARMED_GPIO_Port,     LED_ARMED_Pin);
+                    HAL_GPIO_TogglePin(LED_FLIGHT_GPIO_Port,    LED_FLIGHT_Pin);
+                    HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port,   LED_STORAGE_Pin);
+
+                    prevTime = HAL_GetTick();
+                }
+
                 //gets Memory data
                 retval = memory.ChipReadDump(usbBuffer);
                 //error handler
@@ -268,6 +280,7 @@ int main(void) {
                 sprintf(text,"\r\n");
                 while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
                 }   
+
                 break;
             
             default:
@@ -329,9 +342,6 @@ int main(void) {
 
     // Counter for continuous ticks for true finite state machine state changes
     int tick = 0;
-
-    // Previous time for timing delay of writing into
-    uint32_t prevTime = TIM5->CNT << 16 | TIM4->CNT;
     
     // data type for afs struct is always 0x00, as per UCIRP standard
     afsData.type      = 0x00;
@@ -341,7 +351,10 @@ int main(void) {
     int fireTicker = 0;
     int fireTimer = TIM5->CNT << 16 | TIM4->CNT;
 
+    HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_RESET);
 
+    
     while (1)
     {
     /******************** DATA COLLECTION ********************/
@@ -362,6 +375,7 @@ int main(void) {
             altData = altimeter.GetData();
             afsData.temperature = altData.temperature;
             afsData.altitude    = altData.altitude;
+            afsData.ecefPositionX = altData.pressure;
         }
 
         /* GPS Data */
@@ -396,10 +410,10 @@ int main(void) {
         afsData.accelerationZ     = -imuData.accelerationZ;
 
         /* Magnetometer data */
-        // magData = magnetometer.Read();
-        // afsData.magneticFieldX =  magData.magneticFieldY;
-        // afsData.magneticFieldY = -magData.magneticFieldX;
-        // afsData.magneticFieldZ =  magData.magneticFieldZ;
+        magData = magnetometer.Read();
+        afsData.magneticFieldX =  magData.magneticFieldY;
+        afsData.magneticFieldY = -magData.magneticFieldX;
+        afsData.magneticFieldZ =  magData.magneticFieldZ;
 
         /******************** State maching and parachute deployment ********************/
         switch (state)
@@ -418,6 +432,8 @@ int main(void) {
             }
             break;
         case 0x2:
+            HAL_GPIO_TogglePin(BUZZER_GPIO_Port,  BUZZER_Pin);
+
             if(afsData.timestamp - fireTimer > 500)
             {
                 fireTicker++;
@@ -435,6 +451,8 @@ int main(void) {
             }
             break;
         case 0x3:
+            HAL_GPIO_TogglePin(BUZZER_GPIO_Port,  BUZZER_Pin);
+
             if(afsData.timestamp - fireTimer > 500)
             {
                 fireTicker++;
@@ -452,8 +470,8 @@ int main(void) {
             }
             break;
         case 0x4:
-            HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_SET);
+            HAL_GPIO_TogglePin(BUZZER_GPIO_Port,  BUZZER_Pin);
+            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_RESET);
 
             if(afsData.timestamp - fireTimer > 500)
             {
@@ -462,7 +480,7 @@ int main(void) {
 
                 HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin);
 
-                if(fireTicker >= 60)
+                if(fireTicker >= 30)
                 {
                     state = 0xC;
                     fireTicker = 0;
@@ -472,6 +490,9 @@ int main(void) {
         default:
             HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,LED_STANDBY_Pin,GPIO_PIN_SET);
             HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,LED_ARMED_Pin,GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_RESET);
+
             break;
         }
 
@@ -512,29 +533,36 @@ int main(void) {
         // when AFS is in flight, store data as fast as possible
         else if(state > 0x1 && state < 0xB)
         {
-            if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+            if(HAL_GetTick() > prevTime + 5)
             {
-                //LED blinking
-                if(memoryLEDCounter % 10 == 0)
+                if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
                 {
-                    //for blinking LED
-                    HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
-                }
-                memoryLEDCounter++;
+                    //LED blinking
+                    if(memoryLEDCounter % 10 == 0)
+                    {
+                        //for blinking LED
+                        HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+                    }
+                    memoryLEDCounter++;
 
-                //reset the data from modules with lead time
-                afsData.temperature           = 0xFFFF;
-                afsData.altitude              = 0xFFFFFFFF;
-                afsData.ecefPositionX         = 0xFFFFFFFF;
-                afsData.ecefPositionY         = 0xFFFFFFFF;
-                afsData.ecefPositionZ         = 0xFFFFFFFF;
-                afsData.ecefVelocityX         = 0xFFFFFFFF;
-                afsData.ecefVelocityY         = 0xFFFFFFFF;
-                afsData.ecefVelocityZ         = 0xFFFFFFFF;
-                afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
-                afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
+                    //reestablish the prevTime
+                    prevTime = HAL_GetTick();
+
+                    //reset the data from modules with lead time
+                    afsData.temperature           = 0xFFFF;
+                    afsData.altitude              = 0xFFFFFFFF;
+                    afsData.ecefPositionX         = 0xFFFFFFFF;
+                    afsData.ecefPositionY         = 0xFFFFFFFF;
+                    afsData.ecefPositionZ         = 0xFFFFFFFF;
+                    afsData.ecefVelocityX         = 0xFFFFFFFF;
+                    afsData.ecefVelocityY         = 0xFFFFFFFF;
+                    afsData.ecefVelocityZ         = 0xFFFFFFFF;
+                    afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
+                    afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
+                }
             }
         }
+        
 
         //update the previous altitude data
         if(altData.altitude != prevAltitude)
@@ -542,9 +570,6 @@ int main(void) {
             prevAltitude = altData.altitude;
         }
 
-        // loop time control (the timestamp rolls over after 49 hours, should be ok)
-        while ((TIM5->CNT << 16 | TIM4->CNT) - timeStamp < 100) {
-        }
     }
 }
 
