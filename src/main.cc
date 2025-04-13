@@ -401,7 +401,6 @@ int main(void) {
             // Standby mode, keep collecting data but never log into memory
             HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_SET);
             HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
             HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_RESET);
 
             if(HAL_GPIO_ReadPin(ARM_CONT_GPIO_Port, ARM_CONT_Pin) == 1)
@@ -417,8 +416,8 @@ int main(void) {
 
             if ((altData.altitude != -1) && altData.altitude != prevAltitude) 
             {
-                if (altData.altitude > startAltitude + 30 && 
-                    sqrt(pow(afsData.accelerationX,2) + pow(afsData.accelerationY,2) + pow(afsData.accelerationZ,2)) > 1.5) 
+                if (altData.altitude > startAltitude + 25 && 
+                    sqrt(pow(afsData.accelerationX,2) + pow(afsData.accelerationY,2) + pow(afsData.accelerationZ,2)) > 1) 
                 {
                     tick++;
                     if (tick > 10) 
@@ -534,46 +533,44 @@ int main(void) {
             break;
         }
 
-        afsData.angularVelocityX = tick; ///////////////////////////////////////////////////////////
+        afsData.magneticFieldX = tick; ///////////////////////////////////////////////////////////
 
         /********************  Data written into memory ********************/
         memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
         // when AFS is armed and on launch rails, store data every .5 seconds
 
-        // commented out for lucerne testing 3/5/2025
 
-        // if(state == 0x1 || state == 0xB)
-        // {
-        //     if(HAL_GetTick() > prevTime + 100)
-        //     {
-        //         if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
-        //         {
-        //             //LED blinking
-        //             if(memoryLEDCounter % 10 == 0)
-        //             {
-        //                 //for blinking LED
-        //                 HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
-        //             }
-        //             memoryLEDCounter++;
-        //             //reestablish the prevTime
-        //             prevTime = HAL_GetTick();
-        //             //reset the data from modules with lead time
-        //             afsData.temperature           = 0xFFFF;
-        //             afsData.altitude              = 0xFFFFFFFF;
-        //             afsData.ecefPositionX         = 0xFFFFFFFF;
-        //             afsData.ecefPositionY         = 0xFFFFFFFF;
-        //             afsData.ecefPositionZ         = 0xFFFFFFFF;
-        //             afsData.ecefVelocityX         = 0xFFFFFFFF;
-        //             afsData.ecefVelocityY         = 0xFFFFFFFF;
-        //             afsData.ecefVelocityZ         = 0xFFFFFFFF;
-        //             afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
-        //             afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
-        //         }
-        //     }
-        // }
+        if(state == 0x1 || state == 0xB)
+        {
+            if (timeStamp - prevTime > 100)
+            {
+                if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
+                {
+                    //LED blinking
+                    if(memoryLEDCounter % 10 == 0)
+                    {
+                        //for blinking LED
+                        HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
+                    }
+                    memoryLEDCounter++;
+                    //reestablish the prevTime
+                    prevTime = TIM5->CNT << 16 | TIM4->CNT;
+                    //reset the data from modules with lead time
+                    afsData.temperature           = 0xFFFF;
+                    afsData.altitude              = 0xFFFFFFFF;
+                    afsData.ecefPositionX         = 0xFFFFFFFF;
+                    afsData.ecefPositionY         = 0xFFFFFFFF;
+                    afsData.ecefPositionZ         = 0xFFFFFFFF;
+                    afsData.ecefVelocityX         = 0xFFFFFFFF;
+                    afsData.ecefVelocityY         = 0xFFFFFFFF;
+                    afsData.ecefVelocityZ         = 0xFFFFFFFF;
+                    afsData.ecefPositionAccuracy  = 0xFFFFFFFF;
+                    afsData.ecefVelocityAccuracy  = 0xFFFFFFFF;
+                }
+            }
+        }
         // // when AFS is in flight, store data as fast as possible
-        // else if(state > 0x1 && state < 0xB)
-        if(state >= 0x1)
+        else if (state > 0)
         {
             if(memory.ChipWrite(memoryBuffer) == MemoryW25q1128jvSpi::State::COMPLETE)
             {
@@ -584,8 +581,7 @@ int main(void) {
                     HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port, LED_STORAGE_Pin);
                 }
                 memoryLEDCounter++;
-                //reestabilish the prevTime
-                prevTime = HAL_GetTick();
+               
                 //reset the data from modules with lead time
                 afsData.temperature           = 0xFFFF;
                 afsData.altitude              = 0xFFFFFFFF;
@@ -606,9 +602,7 @@ int main(void) {
             prevAltitude = altData.altitude;
         }
 
-        // loop time control (the timestamp rolls over after 49 hours, should be ok)
-        while ((TIM5->CNT << 16 | TIM4->CNT) - timeStamp < 100) {
-        }
+
     }
 }
 
