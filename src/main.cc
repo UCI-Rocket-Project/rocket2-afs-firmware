@@ -330,8 +330,14 @@ int main(void) {
     // Counter for continuous ticks for true finite state machine state changes
     int tick = 0;
 
+    // net magnitude of acceleration
+    double accMagnitude = 0.0; 
+
     // Previous time for timing delay of writing into
     uint32_t prevTime = TIM5->CNT << 16 | TIM4->CNT;
+
+    // Land FSM timer
+    int prevLandLEDTimer = prevTime;
     
     while (1)
     {
@@ -387,11 +393,16 @@ int main(void) {
         afsData.accelerationY     =  imuData.accelerationY;
         afsData.accelerationZ     = -imuData.accelerationZ;
 
+        accMagnitude = pow(afsData.accelerationX,2) * pow(afsData.accelerationY,2) * pow(afsData.accelerationZ,2);
+        accMagnitude = pow(accMagnitude,0.5);
+
         /* Magnetometer data */
         magData = magnetometer.Read();
         afsData.magneticFieldX =  magData.magneticFieldY;
         afsData.magneticFieldY = -magData.magneticFieldX;
         afsData.magneticFieldZ =  magData.magneticFieldZ;
+
+
 
         /******************** State maching and parachute deployment ********************/
         switch (state)
@@ -416,11 +427,10 @@ int main(void) {
 
             if ((altData.altitude != -1) && altData.altitude != prevAltitude) 
             {
-                if (altData.altitude > startAltitude + 25 && 
-                    sqrt(pow(afsData.accelerationX,2) + pow(afsData.accelerationY,2) + pow(afsData.accelerationZ,2)) > 1) 
+                if (altData.altitude > startAltitude + 20 && accMagnitude > 1.25) 
                 {
                     tick++;
-                    if (tick > 10) 
+                    if (tick > 30) 
                     {
                         tick = 0;
                         state = 0x2;
@@ -444,14 +454,13 @@ int main(void) {
             // condition to find when to deploy drogue parachute
             if(afsData.altitude != -1 && altData.altitude != prevAltitude)
             {
-                if (altData.altitude < prevAltitude) 
+                if (accMagnitude < 1.5) 
                 {
                     tick++;
-                    // 100 is found based on HZ of loop being around 50 HZ ish
-                    if (tick > 5) 
+                    if (tick > 30) 
                     {
                         tick = 0;
-                        state = 0x4;
+                        state = 0x3;
                     }
                 } 
                 else if (altData.altitude > prevAltitude) 
@@ -463,6 +472,32 @@ int main(void) {
 
             break;
 
+            case (0x3):
+                /* COAST mode 0x03 */
+                // when the rocket is flying after burn
+
+                // condition to find when to deploy drogue parachute
+                if(altData.altitude != -1 && altData.altitude != prevAltitude)
+                {
+                    // if rocket fall for a little bit, it apogee
+                    if (altData.altitude < prevAltitude) 
+                    {
+                        tick++;
+                        // 100 is found based on HZ of loop being around 50 HZ ish
+                        if (tick > 10) 
+                        {
+                            tick = 0;
+                            state = 0x4;
+                        }
+                    } 
+                    else if (altData.altitude > prevAltitude) 
+                    {
+                        // Reset count if altitude is increasing again
+                        tick = 0;
+                    }
+                }
+
+                break;
         case (0x4):
             /* Apogee 0x4 */
             // deploys the drogue parachute about 2 sec after apogee
@@ -475,10 +510,10 @@ int main(void) {
             if ((afsData.altitude != -1) && (altData.altitude != prevAltitude)) 
             {
                 // change state after 5 ticks of AFS under 200 ft or 61 meters
-                if ((altData.altitude < startAltitude + 61)) 
+                if ((altData.altitude < startAltitude + 63)) 
                 {
                     tick++;
-                    if (tick > 5) 
+                    if (tick > 20) 
                     {
                         tick = 0;
                         state = 0x8;
@@ -505,10 +540,10 @@ int main(void) {
             if ((afsData.altitude != -1) && (altData.altitude != prevAltitude)) 
             {
                 // altitude is change is less than meter
-                if(abs(altData.altitude - prevAltitude) < 1)
+                if (((altData.altitude - prevAltitude) < 1) && (accMagnitude < 1.5 && accMagnitude > 0.6)) 
                 {
                     tick++;
-                    if(tick > 5)
+                    if(tick > 20)
                     {
                         tick = 0;
                         state = 0xB;
@@ -524,16 +559,19 @@ int main(void) {
         case(0xB):
             /* Land 0xB */
             // Landing conditinon, do nothing but still log data
-            HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin);
-            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin, GPIO_PIN_RESET);
+            if(timeStamp - prevLandLEDTimer > 500)
+            {
+                HAL_GPIO_TogglePin(LED_STANDBY_GPIO_Port, LED_STANDBY_Pin);
+                prevLandLEDTimer = timeStamp;
 
-            HAL_Delay(100);
+            }
+            HAL_GPIO_WritePin(LED_ARMED_GPIO_Port, LED_ARMED_Pin, GPIO_PIN_RESET);
 
         default:
             break;
         }
 
-        afsData.magneticFieldX = tick; ///////////////////////////////////////////////////////////
+        afsData.ecefVelocityZ = tick; ///////////////////////////////////////////////////////////
 
         /********************  Data written into memory ********************/
         memcpy(memoryBuffer, &afsData, sizeof(memoryBuffer));
