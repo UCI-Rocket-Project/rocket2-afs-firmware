@@ -60,7 +60,7 @@ SPI_HandleTypeDef hspi3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 /* USER CODE BEGIN PV */
-uint8_t usbCommand;
+uint16_t usbCommand;
 
 /* Memory initalised */
 MemoryW25q1128jvSpi memory(&hspi2, MEM_CS_GPIO_Port, MEM_CS_Pin, MEM_WP_GPIO_Port, MEM_WP_Pin, MEM_HOLD_GPIO_Port, MEM_HOLD_Pin);
@@ -165,126 +165,126 @@ int main(void) {
     char    text[256];
     int     retval;
 
-    while(1)
-    {
-        //breaks loop if usb not plugged in
-        if(HAL_GPIO_ReadPin(USB_VBUS_GPIO_Port, USB_VBUS_Pin) != GPIO_PIN_SET) break;
+    // while(1)
+    // {
+    //     //breaks loop if usb not plugged in
+    //     if(HAL_GPIO_ReadPin(USB_VBUS_GPIO_Port, USB_VBUS_Pin) != GPIO_PIN_SET) break;
 
-        switch(usbCommand)
-        {
-            //Erases memory
-            //Note: for some reason, VBUS goes low and the loop ends
-            case(0x4F):
-                //Set LEDs
-                HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_SET);
+    //     switch(usbCommand)
+    //     {
+    //         //Erases memory
+    //         //Note: for some reason, VBUS goes low and the loop ends
+    //         case(0x4F):
+    //             //Set LEDs
+    //             HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_RESET);
+    //             HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_RESET);
+    //             HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
+    //             HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_SET);
 
-                memory.ChipErase();
+    //             memory.ChipErase();
 
-                sprintf(text, "Memory fully erased\n");
-                CDC_Transmit_FS((uint8_t *)text, strlen(text));
+    //             sprintf(text, "Memory fully erased\n");
+    //             CDC_Transmit_FS((uint8_t *)text, strlen(text));
 
-                //reset usbCommand
-                usbCommand = 0;
-                break;
+    //             //reset usbCommand
+    //             usbCommand = 0;
+    //             break;
 
-            //USB Memory dump of all nodes
-            case(0x68):
-                //Reduce frequency so hterm doesn't crash lol
-                HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port,LED_STORAGE_Pin);
-                //gets Memory data
-                retval = memory.ChipReadDump(usbBuffer);
-                //error handler
-                if(retval == -1)
-                {
-                    sprintf(text, "Memory SPI error\n");
-                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                    }
-                    usbCommand = 0;
-                    break;
-                }
-                else if(retval == -2)
-                {
-                    sprintf(text, "Memory is full and is fully dumped\n");
-                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                    }
-                    //reset usb command being sent
-                    usbCommand = 0;
-                    break;
-                }
-                else if(usbBuffer[0] != 0x00)
-                {
-                    sprintf(text, "Memory fully dumped\n");
-                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                    }
-                    //reset usb command being sent
-                    usbCommand = 0;
-                    break;
-                }
+    //         //USB Memory dump of all nodes
+    //         case(0x68):
+    //             //Reduce frequency so hterm doesn't crash lol
+    //             HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port,LED_STORAGE_Pin);
+    //             //gets Memory data
+    //             retval = memory.ChipReadDump(usbBuffer);
+    //             //error handler
+    //             if(retval == -1)
+    //             {
+    //                 sprintf(text, "Memory SPI error\n");
+    //                 while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //                 }
+    //                 usbCommand = 0;
+    //                 break;
+    //             }
+    //             else if(retval == -2)
+    //             {
+    //                 sprintf(text, "Memory is full and is fully dumped\n");
+    //                 while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //                 }
+    //                 //reset usb command being sent
+    //                 usbCommand = 0;
+    //                 break;
+    //             }
+    //             else if(usbBuffer[0] != 0x00)
+    //             {
+    //                 sprintf(text, "Memory fully dumped\n");
+    //                 while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //                 }
+    //                 //reset usb command being sent
+    //                 usbCommand = 0;
+    //                 break;
+    //             }
                 
-                afsData  = *(MemoryW25q1128jvSpi::AfsTelemetryData *)&usbBuffer;
-                afsState = *(MemoryW25q1128jvSpi::AfsState *)&afsData.state;
+    //             afsData  = *(MemoryW25q1128jvSpi::AfsTelemetryData *)&usbBuffer;
+    //             afsState = *(MemoryW25q1128jvSpi::AfsState *)&afsData.state;
 
 
 
-                sprintf(text, "Address: %06X, ", retval);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }
+    //             sprintf(text, "Address: %06X, ", retval);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }
 
-                sprintf(text, "Timestamp: %010d, ", afsData.timestamp);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }
+    //             sprintf(text, "Timestamp: %010d, ", afsData.timestamp);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }
                 
-                sprintf(text, "State: %01X, ArmCont: %01X, DrogueCont: %01X, MainCont: %01X, ", afsState.state, afsState.armPinState, afsState.drogueContinuity, afsState.mainContinuity);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }
+    //             sprintf(text, "State: %01X, ArmCont: %01X, DrogueCont: %01X, MainCont: %01X, ", afsState.state, afsState.armPinState, afsState.drogueContinuity, afsState.mainContinuity);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }
 
-                sprintf(text, "AngV_X: %05d, AngV_Y: %05d, AngV_Z: %05d, ", afsData.angularVelocityX, afsData.angularVelocityY, afsData.angularVelocityZ);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }
+    //             sprintf(text, "AngV_X: %05d, AngV_Y: %05d, AngV_Z: %05d, ", afsData.angularVelocityX, afsData.angularVelocityY, afsData.angularVelocityZ);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }
 
-                sprintf(text, "AccX: %05d, AccY: %05d, AccZ: %05d, ", afsData.accelerationX, afsData.accelerationY, afsData.accelerationZ);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }     
+    //             sprintf(text, "AccX: %05d, AccY: %05d, AccZ: %05d, ", afsData.accelerationX, afsData.accelerationY, afsData.accelerationZ);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }     
 
-                sprintf(text, "MagX: %05d, MagY: %05d, MagZ: %05d, ", afsData.magneticFieldX, afsData.magneticFieldY, afsData.magneticFieldZ);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }   
+    //             sprintf(text, "MagX: %05d, MagY: %05d, MagZ: %05d, ", afsData.magneticFieldX, afsData.magneticFieldY, afsData.magneticFieldZ);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }   
 
-                sprintf(text, "Temp: %05d, Alt: %09d, ", afsData.temperature, (int)afsData.altitude);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }  
+    //             sprintf(text, "Temp: %05d, Alt: %09d, ", afsData.temperature, (int)afsData.altitude);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }  
 
-                sprintf(text, "GPSposX: %010d, GPSposY: %010d, GPSposZ: %010d, GPSposAcc: %010d, ", afsData.ecefPositionX, afsData.ecefPositionY, afsData.ecefPositionZ, afsData.ecefPositionAccuracy);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }  
+    //             sprintf(text, "GPSposX: %010d, GPSposY: %010d, GPSposZ: %010d, GPSposAcc: %010d, ", afsData.ecefPositionX, afsData.ecefPositionY, afsData.ecefPositionZ, afsData.ecefPositionAccuracy);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }  
 
-                sprintf(text, "GPSvelX: %010d, GPSvelY: %011d, GPSvelZ: %010d, GPSvelAcc: %010d, ", afsData.ecefVelocityX, afsData.ecefVelocityY, afsData.ecefVelocityZ, afsData.ecefVelocityAccuracy);
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }  
+    //             sprintf(text, "GPSvelX: %010d, GPSvelY: %011d, GPSvelZ: %010d, GPSvelAcc: %010d, ", afsData.ecefVelocityX, afsData.ecefVelocityY, afsData.ecefVelocityZ, afsData.ecefVelocityAccuracy);
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }  
 
-                sprintf(text,"\r\n");
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }   
-                break;
+    //             sprintf(text,"\r\n");
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }   
+    //             break;
             
-            default:
-                HAL_Delay(1000);
-                HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_SET);
-                HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_SET);
-                HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_SET);
-                HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_SET);
+    //         default:
+    //             HAL_Delay(1000);
+    //             HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_SET);
+    //             HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_SET);
+    //             HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_SET);
+    //             HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_SET);
 
-                //test usb send from AFS to confirm connection
-                sprintf(text, "1\r");
-                while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
-                }
-                break;
-        }
+    //             //test usb send from AFS to confirm connection
+    //             sprintf(text, "1\r");
+    //             while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+    //             }
+    //             break;
+    //     }
 
-    }
+    // }
 
     /******************** MAIN AFS FIRMWARE LOOP VARIABLES ********************/
     /* Sensor module initialises */
@@ -335,6 +335,8 @@ int main(void) {
 
     // Previous time for timing delay of writing into
     uint32_t prevTime = TIM5->CNT << 16 | TIM4->CNT;
+
+    int usbPrevTime = TIM5->CNT << 16 | TIM4->CNT;
 
     // Land FSM timer
     int prevLandLEDTimer = prevTime;
@@ -640,7 +642,121 @@ int main(void) {
             prevAltitude = altData.altitude;
         }
 
+        
+        switch(usbCommand)
+        {
+            //Erases memory
+            //Note: for some reason, VBUS goes low and the loop ends
+            case(0x4F):
+                //Set LEDs
+                HAL_GPIO_WritePin(LED_STANDBY_GPIO_Port,  LED_STANDBY_Pin,  GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(LED_ARMED_GPIO_Port,    LED_ARMED_Pin,    GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(LED_FLIGHT_GPIO_Port,   LED_FLIGHT_Pin,   GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(LED_STORAGE_GPIO_Port,  LED_STORAGE_Pin,  GPIO_PIN_SET);
 
+                memory.ChipErase();
+
+                sprintf(text, "Memory fully erased\n");
+                CDC_Transmit_FS((uint8_t *)text, strlen(text));
+
+                //reset usbCommand
+                usbCommand = 0;
+                break;
+
+            //USB Memory dump of all nodes
+            case(0x68):
+                while (1){
+                    //Reduce frequency so hterm doesn't crash lol
+                    HAL_GPIO_TogglePin(LED_STORAGE_GPIO_Port,LED_STORAGE_Pin);
+                    //gets Memory data
+                    retval = memory.ChipReadDump(usbBuffer);
+                    //error handler
+                    if(retval == -1)
+                    {
+                        sprintf(text, "Memory SPI error\n");
+                        while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) { 
+                        }
+                        usbCommand = 0;
+                        break;
+                    }
+                    else if(retval == -2)
+                    {
+                        sprintf(text, "Memory is full and is fully dumped\n");
+                        while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                        }
+                        //reset usb command being sent
+                        usbCommand = 0;
+                        break;
+                    }
+                    else if(usbBuffer[0] != 0x00)
+                    {
+                        sprintf(text, "Memory fully dumped\n");
+                        while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                        }
+                        //reset usb command being sent
+                        usbCommand = 0;
+                        break;
+                    }
+                    
+                    afsData  = *(MemoryW25q1128jvSpi::AfsTelemetryData *)&usbBuffer;
+                    afsState = *(MemoryW25q1128jvSpi::AfsState *)&afsData.state;
+
+
+
+                    sprintf(text, "Address: %06X, ", retval);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }
+
+                    sprintf(text, "Timestamp: %010d, ", afsData.timestamp);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }
+                    
+                    sprintf(text, "State: %01X, ArmCont: %01X, DrogueCont: %01X, MainCont: %01X, ", afsState.state, afsState.armPinState, afsState.drogueContinuity, afsState.mainContinuity);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }
+
+                    sprintf(text, "AngV_X: %05d, AngV_Y: %05d, AngV_Z: %05d, ", afsData.angularVelocityX, afsData.angularVelocityY, afsData.angularVelocityZ);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }
+
+                    sprintf(text, "AccX: %05d, AccY: %05d, AccZ: %05d, ", afsData.accelerationX, afsData.accelerationY, afsData.accelerationZ);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }     
+
+                    sprintf(text, "MagX: %05d, MagY: %05d, MagZ: %05d, ", afsData.magneticFieldX, afsData.magneticFieldY, afsData.magneticFieldZ);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }   
+
+                    sprintf(text, "Temp: %05d, Alt: %09d, ", afsData.temperature, (int)afsData.altitude);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }  
+
+                    sprintf(text, "GPSposX: %010d, GPSposY: %010d, GPSposZ: %010d, GPSposAcc: %010d, ", afsData.ecefPositionX, afsData.ecefPositionY, afsData.ecefPositionZ, afsData.ecefPositionAccuracy);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }  
+
+                    sprintf(text, "GPSvelX: %010d, GPSvelY: %011d, GPSvelZ: %010d, GPSvelAcc: %010d, ", afsData.ecefVelocityX, afsData.ecefVelocityY, afsData.ecefVelocityZ, afsData.ecefVelocityAccuracy);
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }  
+
+                    sprintf(text,"\r\n");
+                    while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                    }   
+                }
+                break;
+            
+            default:
+
+                // if (timeStamp - usbPrevTime > 1000){
+                //     //test usb send from AFS to confirm connection
+                //     sprintf(text, "1\r");
+                //     while (CDC_Transmit_FS((uint8_t *)text, strlen(text)) == USBD_BUSY) {
+                //     }
+
+                //     usbPrevTime = timeStamp;
+                // }
+                break;
+        }
     }
 }
 
